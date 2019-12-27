@@ -5,8 +5,8 @@
 // @version      0.2
 // @description  get some metadata only for work
 // @author       Christoph Neckel
-// @updateURL    https://raw.githubusercontent.com/noxorius/gatherAgentData/master/gatherAgentData.user.js
-// @downloadURL  https://raw.githubusercontent.com/noxorius/gatherAgentData/master/gatherAgentData.user.js
+// @updateURL    https://github.com/noxorius/gatherAgentData/raw/master/gatherAgentData.user.js
+// @downloadURL  https://github.com/noxorius/gatherAgentData/raw/master/gatherAgentData.user.js
 // @match        http://rbeurwbx01.rbdom.rbroot.net:8080/wallboard/agent-cp.asp
 // @grant        GM.listValues
 // @grant        GM.getValue
