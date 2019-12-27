@@ -3,7 +3,7 @@
 // @namespace    https://github.com/noxorius/
 // @include      https://github.com/*
 // @version      0.2
-// @description  get some metadata
+// @description  get some metadata only for work
 // @author       Christoph Neckel
 // @updateURL    https://raw.githubusercontent.com/noxorius/gatherAgentData/master/gatherAgentData.user.js
 // @downloadURL  https://raw.githubusercontent.com/noxorius/gatherAgentData/master/gatherAgentData.user.js
