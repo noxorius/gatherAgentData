@@ -1,13 +1,13 @@
 // ==UserScript==
 // @id             lexDuedate
 // @name           lexDuedate
-// @version        1.0.1
+// @version        1.0.2
 // @author         Christoph Neckel <ch.neckel@gmail.com>
 // @description    Set empty DuDate automatic (+2d) and open DuDate dialog when DuDate is in the past
-// @namespace    https://github.com/noxorius/
-// @include      https://github.com/*
-// @updateURL    https://github.com/noxorius/gatherAgentData/raw/master/lexDuedate.user.js
-// @downloadURL  https://github.com/noxorius/gatherAgentData/raw/master/lexDuedate.user.js
+// @namespace      https://github.com/noxorius/
+// @include        https://github.com/*
+// @updateURL      https://github.com/noxorius/gatherAgentData/raw/master/lexDuedate.user.js
+// @downloadURL    https://github.com/noxorius/gatherAgentData/raw/master/lexDuedate.user.js
 // @include        https://rbit.service-now.com/sc_req_item.do*
 // @include        https://rbit.service-now.com/nav_to.do?uri=%2Fsc_req_item.do*
 // @run-at         document-end
