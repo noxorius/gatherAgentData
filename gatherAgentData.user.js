@@ -4,7 +4,7 @@
 // @include      https://github.com/*
 // @version      0.2
 // @description  get some metadata only for work
-// @author       Christoph Neckel
+// @author       Noxorius
 // @updateURL    https://github.com/noxorius/gatherAgentData/raw/master/gatherAgentData.user.js
 // @downloadURL  https://github.com/noxorius/gatherAgentData/raw/master/gatherAgentData.user.js
 // @match        http://rbeurwbx01.rbdom.rbroot.net:8080/wallboard/agent-cp.asp
