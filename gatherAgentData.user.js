@@ -73,15 +73,15 @@ async function setOnACall(id){
         }
         await updateAgentData(id, 1);
     }
-    if (await readAgentData(id+"forward") == 1){
-        let forwardingAgend = await readAgentData("index"+index);
-        if (forwardingAgend != 0){
-            console.log("forwardingAgend != 0: " + id + "fAgend:"+forwardingAgend);
-            updateAgentData(forwardingAgend, -1);
-            setAgentData("index"+index, 0);
-        }
-        setAgentData(id+"forward", 0);
-    }
+//    if (await readAgentData(id+"forward") == 1){
+//        let forwardingAgend = await readAgentData("index"+index);
+//        if (forwardingAgend != 0){
+//            console.log("forwardingAgend != 0: " + id + "fAgend:"+forwardingAgend);
+//            updateAgentData(forwardingAgend, -1);
+//            setAgentData("index"+index, 0);
+//        }
+//        setAgentData(id+"forward", 0);
+//    }
     setAgentData(id + "status", 1);
 }
 
@@ -163,8 +163,8 @@ $(document).ready(function() {
             }
             // set forward "nicht ACD Anruf"
             if (value[1] == "nicht ACD Anruf"){
-                setAgentData(id+"forward", 1);
-                console.log("Nicht ACD Anruf: id:  " + id );
+         //       setAgentData(id+"forward", 1);
+         //       console.log("Nicht ACD Anruf: id:  " + id );
             }
             // update Calls var
             UpdateCallValue(value[2]);
