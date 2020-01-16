@@ -29,8 +29,17 @@ function parseDate(input) {
 // get Request doDate
 var date = document.getElementById("sys_original.sc_req_item.due_date");
 var status = document.getElementById("sys_original.sc_req_item.state").value;
+var assingedTo = document.getElementById("sys_display.original.sc_req_item.assigned_to").value;
+var NOWUser = window.NOW.user_display_name;
 var now = new Date();
 now.setHours(24);
+
+// dont do anything when ticket is closed 
+// OR not to you assinged
+
+if (assingedTo != NOWUser || status == 6 || status ==7 ){
+        return(false);
+    }
 
 if (date.value != "") {
 	// dueDate is set
