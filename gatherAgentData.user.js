@@ -12,10 +12,12 @@
 // @grant        GM.getValue
 // @grant        GM.setValue
 // @grant        GM.deleteValue
+// @require      https://code.jquery.com/jquery-3.4.1.min.js
 // ==/UserScript==
 
+// enable debugging in console .. 
 var enableDebug = 0;
-//var ranking = [];
+
 
 // get agent data from table
 function getTableData(table) {
@@ -31,7 +33,8 @@ function getTableData(table) {
 }
 
 
-// read data from Var name=id
+// read data from GM.getValue 
+//if no val return==0
 async function readAgentData(id) {
     let agentCalls = await GM.getValue(id, 0);
     if (enableDebug == 1){
@@ -40,7 +43,8 @@ async function readAgentData(id) {
     return agentCalls;
 }
 
-// set data to Name
+// set data to var to GM.setValue 
+// id = valName
 async function setAgentData(id, value){
     await GM.setValue( id, value);
     if (enableDebug == 1){
@@ -73,15 +77,6 @@ async function setOnACall(id){
         }
         await updateAgentData(id, 1);
     }
-//    if (await readAgentData(id+"forward") == 1){
-//        let forwardingAgend = await readAgentData("index"+index);
-//        if (forwardingAgend != 0){
-//            console.log("forwardingAgend != 0: " + id + "fAgend:"+forwardingAgend);
-//            updateAgentData(forwardingAgend, -1);
-//            setAgentData("index"+index, 0);
-//        }
-//        setAgentData(id+"forward", 0);
-//    }
     setAgentData(id + "status", 1);
 }
 
