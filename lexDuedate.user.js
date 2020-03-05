@@ -1,7 +1,7 @@
 // ==UserScript==
 // @id             lexDuedate
 // @name           lexDuedate
-// @version        1.0.3
+// @version        1.0.4
 // @author         Noxorius
 // @description    Set empty DuDate automatic (+2d) and open DuDate dialog when DuDate is in the past
 // @namespace      https://github.com/noxorius/
