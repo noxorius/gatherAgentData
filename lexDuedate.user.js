@@ -12,6 +12,7 @@
 // @include        https://rbit.service-now.com/nav_to.do?uri=%2Fsc_req_item.do*
 // @run-at         document-end
 // @grant          none
+// @require      https://code.jquery.com/jquery-3.4.1.min.js
 // ==/UserScript==
 
 // This scrips check the dueDate ( NOT < NOW ) or sets a empty dueDate to + 2 days
