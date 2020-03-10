@@ -2,7 +2,7 @@
 // @name         gather Agent Data
 // @namespace    https://github.com/noxorius/
 // @include      https://github.com/*
-// @version      0.2
+// @version      0.3
 // @description  get some metadata only for work
 // @author       Noxorius
 // @updateURL    https://github.com/noxorius/gatherAgentData/raw/master/gatherAgentData.user.js
