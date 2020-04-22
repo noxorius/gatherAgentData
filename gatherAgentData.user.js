@@ -146,12 +146,6 @@ async function UpdateCallValue(id){
 
 //last row <p align="RIGHT"><em><font size="-1">This page will update every 10 seconds<br>(Last updated on: 12/17/2019 12:44:45 PM)</font></em></p>
 
-function injectRaceTable(htmlData){
-    let originHtml = $( "p" ).first().html();
-    let changedHtml = htmlData+originHtml;
-    $( "p" ).first().html(changedHtml);
-}
-
 
 $(document).ready(function() {
     'use strict';
