@@ -2,7 +2,7 @@
 // @name         gather Agent Data
 // @namespace    https://github.com/noxorius/
 // @include      https://github.com/*
-// @version      0.3
+// @version      0.4
 // @description  get some metadata only for work
 // @author       Noxorius
 // @updateURL    https://github.com/noxorius/gatherAgentData/raw/master/gatherAgentData.user.js
@@ -18,6 +18,10 @@
 // enable debugging in console .. 
 var enableDebug = 0;
 
+// change font to a fixed fixed-width
+function setFixedFont() {
+    $("body").css("font-family", "Courier");
+}
 
 // get agent data from table
 function getTableData(table) {
@@ -102,22 +106,43 @@ function setLastIndex(id, index){
     setAgentData("index"+index, id);
 }
 
+// search the full Name and add the content
 function AddToCellContent(find, add)
 {
-    $("font:contains('" + find + "')").html(find+add);
+    let virtualTab = 42;
+    let spacer = " ";
+
+    $("*font:contains('" + find + "'):visible").each(function() {
+        let ContenLenght = $(this).text().length;
+        console.log("NEC"+find+": #"+ContenLenght);
+        if (ContenLenght < virtualTab){
+            spacer = "&nbsp;".repeat(Math.abs(virtualTab - ContenLenght));
+            $(this).html(find+spacer+add);
+        }
+    });
 }
 
 async function UpdateCallValue(id){
     let value = await readAgentData(id);
+    let valueCalls = await readAgentData(id+"count");
     let ranking = this;
     if (enableDebug == 1){
             console.log("UpdateCallValue check: "+"#id"+id +" value: "+value);
        }
     //update HTML element "id"+id
     $( ".id"+id ).text(value);
-    // update Array
-//    ranking.find(item =>  item.id === id).calls = value;
+    // calc a # count
+    let hashstring = "";
+    let maxhashlenght = 60;
+    let numhash = (valueCalls / 10) >> 0;
+    if ( numhash > maxhashlenght ) numhash = maxhashlenght;
+    if ( id == "erendl" ) {
+        $( ".id"+id+"anz" ).text("-");
+    } else {
+        $( ".id"+id+"anz" ).text("#".repeat(numhash));
+    }
 }
+
 
 //last row <p align="RIGHT"><em><font size="-1">This page will update every 10 seconds<br>(Last updated on: 12/17/2019 12:44:45 PM)</font></em></p>
 
@@ -137,15 +162,21 @@ $(document).ready(function() {
 
     // first start a new day delete all data
     checkDateProgram();
+    // cange font to fixed
+    setFixedFont();
+
     // first table all agents
     var agentData = getTableData($( "table" ).first());
     $.each(agentData, function( index, value ) {
         // first line is header
+        if (index == 0 ){
+ // disable TODO           AddToCellContent("Agentname", "");
+        }
         if (index != 0) {
             // add to array
     //        ranking.push({"index":value[2], "id":index, "calls":0});
             // add Cell:
-            AddToCellContent(value[0], ("   Calls: <span class=\"id"+value[2]+"\">0</span>"));
+            AddToCellContent(value[0], ("Calls: <span class=\"id"+value[2]+"\">0</span>&emsp13;noCall: <span class=\"id"+value[2]+"anz\"></span>" ));
             // change from "On a Call" to "Work"
             if (value[1] == "On a Call"){
                 setOnACall(value[2]);
@@ -157,9 +188,15 @@ $(document).ready(function() {
                 // delete setOnACall(value[2], 0);
             }
             // set forward "nicht ACD Anruf"
-            if (value[1] == "nicht ACD Anruf"){
+            if (value[1] == "Ready"){
+                // update the # of refeshes
+                updateAgentData(value[2] + "count", 1);
          //       setAgentData(id+"forward", 1);
          //       console.log("Nicht ACD Anruf: id:  " + id );
+            }
+            if (value[1] != "Ready"){
+                // delete # of refeshed
+                setAgentData(value[2] + "count", 0);
             }
             // update Calls var
             UpdateCallValue(value[2]);
