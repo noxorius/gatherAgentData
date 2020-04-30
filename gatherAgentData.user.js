@@ -2,7 +2,7 @@
 // @name         gather Agent Data
 // @namespace    https://github.com/noxorius/
 // @include      https://github.com/*
-// @version      0.4
+// @version      0.5
 // @description  get some metadata only for work
 // @author       Noxorius
 // @updateURL    https://github.com/noxorius/gatherAgentData/raw/master/gatherAgentData.user.js
@@ -14,6 +14,10 @@
 // @grant        GM.deleteValue
 // @require      https://code.jquery.com/jquery-3.4.1.min.js
 // ==/UserScript==
+
+
+// Update 0.5: all call to extern have now the "On a Call" Sign ... we have to switch the logic ...
+// If the agent goes from "On a Call" to "Working" thats a real call
 
 // enable debugging in console .. 
 var enableDebug = 0;
@@ -73,15 +77,24 @@ async function updateAgentData(id, value) {
     await setAgentData(id, (value + oldValue));
 }
 
-// set call status 1= "On a Call"
+// status "On a Call"
 async function setOnACall(id){
-    if ( await readAgentData(id+"status") == 0){
+    // check to update status once
+    setAgentData(id + "status", 1);
+}
+
+// status "Working"
+// if the last Status was "On a Call" --> count as a call
+async function setWorking(id){
+    // check to update status once
+    if ( await readAgentData(id+"status") == 1){
         if (enableDebug == 1){
-            console.log("setOnACall Last access status == 0: " + id);
+            console.log("setOnACall Last access status == 1: " + id);
         }
         await updateAgentData(id, 1);
+        // set data to update agent data
+        setAgentData(id + "status", 0);
     }
-    setAgentData(id + "status", 1);
 }
 
 // check last date program was running (eg 2019121)
@@ -163,32 +176,28 @@ $(document).ready(function() {
     var agentData = getTableData($( "table" ).first());
     $.each(agentData, function( index, value ) {
         // first line is header
-        if (index == 0 ){
- // disable TODO           AddToCellContent("Agentname", "");
-        }
         if (index != 0) {
-            // add to array
-    //        ranking.push({"index":value[2], "id":index, "calls":0});
-            // add Cell:
+            // add our injected HTML:
             AddToCellContent(value[0], ("Calls: <span class=\"id"+value[2]+"\">0</span>&emsp13;noCall: <span class=\"id"+value[2]+"anz\"></span>" ));
-            // change from "On a Call" to "Work"
+
+            // Check status
             if (value[1] == "On a Call"){
                 setOnACall(value[2]);
-                setLastIndex(value[2], index);
             }
             if (value[1] == "Work"){
-                //check if last status was ""On a Call"
-                setAgentData(value[2] + "status", 0);
-                // delete setOnACall(value[2], 0);
+                //check if last status was "On a Call"
+                setWorking(value[2]);
             }
-            // set forward "nicht ACD Anruf"
             if (value[1] == "Ready"){
                 // update the # of refeshes
                 updateAgentData(value[2] + "count", 1);
-         //       setAgentData(id+"forward", 1);
-         //       console.log("Nicht ACD Anruf: id:  " + id );
-            }
-            if (value[1] != "Ready"){
+                // update status to 0 -- only set to 1 in "On a Call"
+                setAgentData(value[2] + "status", 0);
+            } else {
+            // die # werden immer glöscht wenn nicht im ready mode
+                if ( value[1] != "On a Call"){
+                    setAgentData(value[2] + "status", 0);
+                }
                 // delete # of refeshed
                 setAgentData(value[2] + "count", 0);
             }
