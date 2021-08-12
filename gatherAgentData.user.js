@@ -2,7 +2,7 @@
 // @name         gather Agent Data
 // @namespace    https://github.com/noxorius/
 // @include      https://github.com/*
-// @version      0.6
+// @version      0.7
 // @description  get some metadata only for work
 // @author       Noxorius
 // @updateURL    https://github.com/noxorius/gatherAgentData/raw/master/gatherAgentData.user.js
@@ -16,7 +16,7 @@
 // @require      https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.bundle.min.js
 // ==/UserScript==
 
-
+// Update 0.7: fix bug reload on "internal server page"
 // Update 0.5: all call to extern have now the "On a Call" Sign ... we have to switch the logic ...
 // If the agent goes from "On a Call" to "Working" thats a real call
 
@@ -437,17 +437,13 @@ async function UpdateCallValue(id){
 }
 
 
-
+// reload page when internal error all 10 seconds
 function reloadWhenError(){
     // <title>500 - Internal server error.</title>
     if (document.title == "500 - Internal server error."){
-        // wait 5s --> reload
-        $.wait = function(ms) {
-            var defer = $.Deferred();
-            setTimeout(function() { defer.resolve(); }, ms);
-            return defer;
-        };
-        $.wait(5000).then(location.reload());
+        setTimeout(function(){
+            location.reload()
+       },10000);
     }
 }
 
