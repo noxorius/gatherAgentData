@@ -1,7 +1,6 @@
 // ==UserScript==
 // @name         gather Agent Data
 // @namespace    https://github.com/noxorius/
-// @include      https://github.com/*
 // @version      0.7
 // @description  get some metadata only for work
 // @author       Noxorius
