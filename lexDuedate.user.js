@@ -1,24 +1,23 @@
 // ==UserScript==
-// @id             lexDuedate
 // @name           lexDuedate
-// @version        1.0.4
+// @version        1.0.5
 // @author         Noxorius
 // @description    Set empty DuDate automatic (+2d) and open DuDate dialog when DuDate is in the past
 // @namespace      https://github.com/noxorius/
-// @include        https://github.com/*
 // @updateURL      https://github.com/noxorius/gatherAgentData/raw/master/lexDuedate.user.js
 // @downloadURL    https://github.com/noxorius/gatherAgentData/raw/master/lexDuedate.user.js
-// @include        https://rbit.service-now.com/sc_req_item.do*
-// @include        https://rbit.service-now.com/nav_to.do?uri=%2Fsc_req_item.do*
+// @match          https://rbit.service-now.com/sc_req_item.do*
+// @match        https://rbit.service-now.com/nav_to.do?uri=%2Fsc_req_item.do*
 // @run-at         document-end
 // @grant          none
-// @require      https://code.jquery.com/jquery-3.4.1.min.js
 // ==/UserScript==
+
 
 // This scrips check the dueDate ( NOT < NOW ) or sets a empty dueDate to + 2 days
 
-function parseDate(input) {
-	//format dd.MM.yyyy HH:mm:ss
+ function lexDuedateparseDate(input) {
+	//format
+   // eg 2022-04-22 11:51:20
 	var parts = input.split(" ");
 	var date = parts[0].split("-");
 	var time = parts[1].split(":");
@@ -26,7 +25,7 @@ function parseDate(input) {
 	return new Date(date[0], date[1] - 1, date[2], time[0], time[1], time[2]);
 }
 
-function getNextWorkdays(){
+function lexDuedategetNextWorkdays(){
     var timeAddinS = 48 * 1000 * 60 * 60;
     var nextDue = new Date();
     nextDue.setTime( nextDue.getTime() + timeAddinS );
@@ -42,7 +41,7 @@ function getNextWorkdays(){
 }
 
 function lexDuedate() {
-    // get Request doDate
+    // get Request doDate eg 2022-04-22 11:51:20
     var date = document.getElementById("sys_original.sc_req_item.due_date");
     var status = document.getElementById("sys_original.sc_req_item.state").value;
     var assingedTo = document.getElementById("sys_display.original.sc_req_item.assigned_to").value;
@@ -50,30 +49,46 @@ function lexDuedate() {
     var now = new Date();
     now.setHours(24);
 
+    //DEBUG
+/*     console.log("lexDuedate: Date: "+ date);
+    console.log("lexDuedate: status: "+ status);
+    console.log("lexDuedate: assingedTo: "+ assingedTo);
+    console.log("lexDuedate: NOWUser: "+ NOWUser);
+    console.log("lexDuedate: now: "+ now); */
+
+
     if ((assingedTo != NOWUser && assingedTo != "") || status == 6 || status ==7 ){
-        return(false);
+        console.log("lexDuedate: return");
+        return;
     }
 
     if (date.value != "") {
         // dueDate is set
-        var dateValue = parseDate(date.value);
+        console.log("lexDuedate: dueDate is set");
+        var dateValue = lexDuedateparseDate(date.value);
         // check if date + 24 > now && status == resolved
         if ( dateValue < now && status != 6 ) {
             // SET dueDat
+            console.log("lexDuedate: dueDate NOT ok");
             document.getElementById("sc_req_item.due_date.ui_policy_sensitive").click();
         } else {
             // dueDate ok
+            console.log("lexDuedate: dueDate ok");
         }
     } else {
         // NO dueDate set
+        console.log("lexDuedate: NO dueDate set");
+        document.getElementById("sc_req_item.due_date.ui_policy_sensitive").click();
         // NEW REquest Item
-        var nextDue = new Date();
+        //var nextDue = new Date();
         // now + 48h
-        nextDue.setTime( getNextWorkdays() );
+        // nextDue.setTime( lexDuedategetNextWorkdays() );
         // set Duedate sc_req_item.due_date
-        document.getElementById("sc_req_item.due_date").value = (nextDue.getFullYear()+"-"+("0"+(nextDue.getMonth() + 1)).slice(-2)+ "-" + ("0" + nextDue.getDate()).slice(-2)+
-                                                                 " "+ ("0" + nextDue.getHours()).slice(-2) +":"+ ("0"+nextDue.getMinutes()).slice(-2) + ":" + ("0"+nextDue.getSeconds()).slice(-2));
+        // eg 2022-04-22 11:51:20
+      //  document.getElementById("sys_original.sc_req_item.due_date").value = (nextDue.getFullYear()+"-"+("0"+(nextDue.getMonth() + 1)).slice(-2)+ "-" + ("0" + nextDue.getDate()).slice(-2)+
+      //                                                           " "+ ("0" + nextDue.getHours()).slice(-2) +":"+ ("0"+nextDue.getMinutes()).slice(-2) + ":" + ("0"+nextDue.getSeconds()).slice(-2));
     }
 }
+
 
 lexDuedate();
