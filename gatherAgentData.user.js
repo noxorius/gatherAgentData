@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         gather Agent Data
 // @namespace    https://github.com/noxorius/
-// @version      0.8
+// @version      0.9
 // @description  get some metadata only for work
 // @author       Noxorius
 // @updateURL    https://github.com/noxorius/gatherAgentData/raw/master/gatherAgentData.user.js
@@ -11,10 +11,25 @@
 // @grant        GM.getValue
 // @grant        GM.setValue
 // @grant        GM.deleteValue
-// @require      https://code.jquery.com/jquery-3.4.1.min.js
-// @require      https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.bundle.min.js
+// @require      https://code.jquery.com/jquery-3.6.1.min.js
+// @require      https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.js
+// @require      https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js
+
 // ==/UserScript==
 
+// Userdata: Array structure: userId, time, direction
+// time: unix timestamp
+// add new Model ( Status/direction:
+// 0 --> Break
+// 1 --> Not Ready / In Office
+// 2 --> Not ACD Call
+// 3 --> Ready
+// 4 --> Working
+// 5 --> Call
+// 6 --> Incomming Call ( will be set if last Status is Call and Status now is Working
+
+
+// Update 0.9 upgrade chart.js to 3.9.1 and jquery 3.6.1
 // Update 0.7: fix bug reload on "internal server page"
 // Update 0.5: all call to extern have now the "On a Call" Sign ... we have to switch the logic ...
 // If the agent goes from "On a Call" to "Working" thats a real call
@@ -23,9 +38,9 @@
 //            added call in progess status == 3, switch to tickest status (no more status wariable)
 
 // enable debugging in console ..
-var enableDebug = 0;
 var showStat = 0;
 var deleteData = 0;
+var slidingTimeWindow = 90;
 
 // change font to a fixed fixed-width
 function setFixedFont() {
@@ -50,9 +65,6 @@ function getTableData(table) {
 //if no val return==0
 async function readAgentData(id) {
     let agentCalls = await GM.getValue(id, 0);
-    if (enableDebug == 1){
-        console.log("readAgentData: " + id + " Value: "+ agentCalls);
-    }
     return agentCalls;
 }
 
@@ -60,9 +72,6 @@ async function readAgentData(id) {
 // id = valName
 async function setAgentData(id, value){
     await GM.setValue( id, value);
-    if (enableDebug == 1){
-        console.log("setAgentData: " + id + " Value: "+ value);
-    }
 }
 
 // delete all set Variables
@@ -74,15 +83,6 @@ async function deleteAllData(){
     // test delete JSON
     await GM.setValue( "arrayDate", 0);
     await GM.setValue( "myJSON", 0);
-}
-
-// update data in varable (addition)
-async function updateAgentData(id, value) {
-    let oldValue = await readAgentData(id);
-    if (enableDebug == 1){
-        console.log("updateAgentData: " + oldValue );
-    }
-    await setAgentData(id, (value + oldValue));
 }
 
 // Get Last Tickes status
@@ -110,14 +110,59 @@ async function getTicketStatus(arrayName, userId){
     return(-1);
 }
 
-
-//Update JSON data (array)
-// update JSON --> for stat graph
-// Array (UserId, StartCall, EndCall, Direction(0 == Outbound OR 1 == Inbound) OR Progess == 3)
-async function updateJSONArray(arrayName, userId, startCall, endCall, direction) {
-    if (enableDebug == 1){
-        console.log("updateJSONArray: " + arrayName, userId, startCall, endCall, direction );
+// Get Last Tickes status
+// find last Ticket from the user and retun the status flag
+// or return -1 when no ticket found
+async function getLastTime(arrayName, userId){
+    // load array
+    let oldValue = await readAgentData(arrayName);
+    // no array initialied
+    if (oldValue == 0){
+        let tempoldValue = [];
+        oldValue = JSON.stringify(tempoldValue);
     }
+    let myArray = JSON.parse(oldValue);
+    for ( let i = myArray.length - 1; i >= 0; i--){
+        // if username net and entry exist
+        if ( userId != "" && myArray[i][0] == userId ){
+            return(myArray[i][1]);
+        } else {
+            // return the time last entry of the Array
+            return(myArray[i][1]);
+        }
+    }
+    return(-1);
+}
+
+// update JSON the last call (direction 5 -> 6) (normal call to inbound call)
+ async function updateTimeJSONExternCall(arrayName, userId){
+     if (userId == "") {
+         return;
+     }
+     let oldValue = await readAgentData(arrayName);
+     // no array initialied
+     if (oldValue == 0){
+         return;
+     }
+     let myArray = JSON.parse(oldValue);
+
+     var oldDirection = -1;
+     for ( let i = myArray.length - 1; i >= 0; i--){
+         if ( myArray[i][0] == userId && myArray[i][2] != 4){
+             // find the last entry from this user and get the direction
+             oldDirection = myArray[i][2];
+             if (oldDirection == 5){
+                 myArray[i][2] = 6;
+                 await setAgentData(arrayName, JSON.stringify(myArray));
+             }
+             break;
+         }
+     }
+     return;
+ }
+
+
+async function updateTimeJSONArray(arrayName, userId, time, direction) {
     // has to be set
     if (userId == "") {
         return;
@@ -129,105 +174,120 @@ async function updateJSONArray(arrayName, userId, startCall, endCall, direction)
         oldValue = JSON.stringify(tempoldValue);
     }
     let myArray = JSON.parse(oldValue);
-    if ( startCall != "" ){
-        // new array entry multi layer array
-        let innerArray= [];
-        innerArray.push(userId, startCall, "", direction);
-        myArray.push(innerArray);
-    }
-    if ( endCall != "" ){
-        // find last userid and add endCall date and direction
+    if ( time != "" ){
+        var oldDirection = -1;
         for ( let i = myArray.length - 1; i >= 0; i--){
              if ( myArray[i][0] == userId ){
-                 // find the last entry from this user and set stopdate and direction
-                 myArray[i][2] = endCall;
-                 myArray[i][3] = direction;
+                 // find the last entry from this user and get the direction
+                 oldDirection = myArray[i][2];
                  break;
              }
-            // found no entry (call to short that it was reg) --> create a new one
-            if ( i == 0 ){
-                // crate a entry
-                myArray[i][0] = userId;
-                myArray[i][1] = startCall;
-                myArray[i][2] = endCall;
-                myArray[i][3] = direction;
-            }
         }
+        // if oldDirection != new entry ( remove duplicates)
+        if ( oldDirection != direction ){
+           // new array entry multi layer array
+           let innerArray= [];
+           innerArray.push(userId, time, direction);
+           myArray.push(innerArray);
+   //         console.log("NEC: push "+ userId + " - " + oldDirection + " - " + direction );
+            await setAgentData(arrayName, JSON.stringify(myArray));
+       } // or do nothing
     }
-    await setAgentData("updateJSON", 1);
-    await setAgentData(arrayName, JSON.stringify(myArray));
 }
 
+async function getTimeJSONArray(arrayName, userId, direction) {
+    // has to be set
+    if (userId == "") {
+        return;
+    }
+    let oldValue = await readAgentData(arrayName);
+    // no array initialied
+    if (oldValue == 0){
+        let tempoldValue = [];
+        oldValue = JSON.stringify(tempoldValue);
+    }
+    let myArray = JSON.parse(oldValue);
+    if (direction == "") {direction = 3};
 
-// print JSONArray(name)
-async function printJSONArray(arrayName){
-    let Value = await readAgentData(arrayName);
-    let myArray = JSON.parse(Value);
-    return myArray.toString();
+       for ( let i = myArray.length - 1; i >= 0; i--){
+            if ( myArray[i][0] == userId ){
+                // find the last entry from this user and get the time
+                if (direction == myArray[i][2]) {
+                    return myArray[i][1];
+                }
+             }
+        }
+    return -1;
+}
+
+async function getStatJSONArray(arrayName, userId) {
+    // has to be set
+    if (userId == "") {
+        return;
+    }
+    let oldValue = await readAgentData(arrayName);
+    // no array initialied
+    if (oldValue == 0){
+        let tempoldValue = [];
+        oldValue = JSON.stringify(tempoldValue);
+    }
+    let myArray = JSON.parse(oldValue);
+
+    for ( let i = myArray.length - 1; i >= 0; i--){
+        if ( myArray[i][0] == userId) {
+            // find the last entry from this user and get the direction
+            return myArray[i][2];
+            }
+        }
+
+    return -1;
 }
 
 // status "On a Call"
 async function setOnACall(id){
-    // check to update status once
-    if ( await getTicketStatus("arrayDate", id) != 3) {
-        // add a value to the statArray
-        // Array (UserId, StartCall, EndCall, Direction(0 == Outbound OR 1 == Inbound) OR Progess == 3)
-        await updateJSONArray("arrayDate", id, Date.now(), "", 3);
-        // delete # of refeshed
-        setAgentData(id + "count", 0);
-    }
+
+    // new array
+    await updateTimeJSONArray("arrayTime", id, Date.now(), 5);
 }
 
 // status "Working"
 // if the last Status was "On a Call" --> count as a call
 async function setWorking(id){
-    // check to update status once
-    if ( await getTicketStatus("arrayDate", id) == 3) {
-        if (enableDebug == 1){
-            console.log("setOnACall Last access status == 1: " + id);
-        }
-        // create a new JSON
-        await updateAgentData(id, 1);
-        // add a value to the statArray
-        // Array (UserId, StartCall, EndCall, Direction(0 == Outbound OR 1 == Inbound OR Progess == 3))
-        await updateJSONArray("arrayDate", id, "", Date.now(), 1);
-        // delete # of refeshed
-        await setAgentData(id + "count", 0);
-    }
-    // Error Handling: if call to short no "On a Call" ((id+"status") == 1) status
-    if (await readAgentData(id + "count") > 0){
-        await updateJSONArray("arrayDate", id, "", Date.now(), 1);
-        await updateAgentData(id, 1);
-        setAgentData(id + "count", 0);
-    }
 
+    // set status 6 == last was a inbound call ( 5 is a call )
+    await updateTimeJSONExternCall("arrayTime", id);
+
+    // new array
+    await updateTimeJSONArray("arrayTime", id, Date.now(), 4);
 }
 
 // status "Ready"
 // if the last Status was "On a Call" --> count as a callOUT
 async function setReady(id){
     //count page reload
-    await updateAgentData(id + "count", 1);
-    if ( await getTicketStatus("arrayDate", id) == 3) {
-        // set counter to 0
-        setAgentData(id + "count", 0);
-        // add a value to the statArray
-        // Array (UserId, StartCall, EndCall, Direction(0 == Outbound OR 1 == Inbound OR Progess == 3))
-        await updateJSONArray("arrayDate", id, "", Date.now(), 0);
-    }
+
+    await updateTimeJSONArray("arrayTime", id, Date.now(), 3);
 }
 
 // status "Offline"
 async function setOffline(id){
-    if ( getTicketStatus("arrayDate", id) == 3) {
-        // Array (UserId, StartCall, EndCall, Direction(0 == Outbound OR 1 == Inbound OR Progess == 3))
-        updateJSONArray("arrayDate", id, "", Date.now(), 0);
-        ;
-    }
-    // delete # of refeshed
-    setAgentData(id + "count", 0);
+
+
+    await updateTimeJSONArray("arrayTime", id, Date.now(), 0);
 }
 
+
+// status "Break"
+async function setBreak(id){
+
+    await updateTimeJSONArray("arrayTime", id, Date.now(), 0);
+}
+
+// status "nicht ACD Anruf"
+async function setNoACD(id){
+
+    await updateTimeJSONArray("arrayTime", id, Date.now(), 2);
+}
 
 // check last date program was running (eg 2019121)
 async function checkDateProgram(){
@@ -235,21 +295,45 @@ async function checkDateProgram(){
     //get date
     let d = new Date();
     let strDate = d.getFullYear().toString() + (d.getMonth()+1).toString() + d.getDate().toString();
-    if (enableDebug == 1){
-        console.log("checkDateProgram Date:  " + strDate );
-    }
     if (await readAgentData("gatherAgentData") != strDate || deleteData == 1) {
        deleteAllData()
        setAgentData("gatherAgentData", strDate);
     }
 }
 
+// Status Not Ready / In Office
+
+async function setNotReady(id){
+
+    await updateTimeJSONArray("arrayTime", id, Date.now(), 1);
+    // delete # of refeshed
+}
+
+
 function setLastIndex(id, index){
-    if (enableDebug == 0){
-        console.log("setLastIndex id:  " + id );
-    }
     setAgentData("index"+index, id);
 }
+
+
+// test Color change
+
+function hashCode(str) { // java String#hashCode
+    var hash = 0;
+    for (var i = 0; i < str.length; i++) {
+       hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return 285 * hash;
+}
+
+function intToRGB(i){
+    var c = (i & 0x00FFFFFF)
+        .toString(16)
+        .toUpperCase();
+
+    return "#" + "00000".substring(0, 6 - c.length) + c;
+}
+
+
 
 // create a JSON Data --> for diagram
 async function createJSONData(arrayName){
@@ -260,13 +344,6 @@ async function createJSONData(arrayName){
        oldValue = JSON.stringify(tempoldValue);
     }
     let myArray = JSON.parse(oldValue);
-
-    //run this only if the new entries are set
-    if ( await readAgentData("updateJSON") != 0 ){
-        setAgentData("updateJSON", 0);
-    } else {
-        return;
-    }
 
     // labels --> Namen
     let labels =["Call received", "Call made", "Call in progess"];
@@ -302,17 +379,15 @@ async function createJSONData(arrayName){
 
             if (myArray[j][0] == arrayId[i]){
                 // found user entry
-                if (myArray[j][3] == 1){
+                if (myArray[j][2] == 6){
                     //count call IN
                     callIn++;
-                } else if (myArray[j][3] == 0){
+                } else if (await getStatJSONArray(arrayName, arrayId[i]) == 5 && myArray[j][2] == 5 && progess == 0){ //TODO
+                    // Check if last entry in array is Call out --> ongoing
+                    progess++;
+                } else if (myArray[j][2] == 5){
                     //count call Out
                     callout++;
-                } else if (myArray[j][3] == 3){
-                    // count running
-                    progess++;
-                } else {
-                    //ignore
                 }
             }
         }
@@ -354,13 +429,143 @@ async function createJSONData(arrayName){
     dataZero.beginAtZero = true;
     //dataYAxes.push(dataTicks);
     dataYAxes.push(dataYAexesStacked);
-    dataY.yAxes = dataYAxes;
+    //dataY.y = dataYAxes;
     dataOptions.scales = dataY;
     myJSON.options = dataOptions;
-    //console.log("NEC"+JSON.stringify(myJSON));
-    setAgentData("myJSON", JSON.stringify(myJSON));
+    return(myJSON);
 }
 
+
+// new Chart test
+// create a JSON Data --> for diagram
+async function createTimeJSONData(arrayName){
+     let oldValue = await readAgentData(arrayName);
+
+//   no array initialied
+   if (oldValue == 0){
+       let tempoldValue = [];
+       oldValue = JSON.stringify(tempoldValue);
+    }
+    let myArray = JSON.parse(oldValue);
+
+    // labels --> Namen
+    let labels =["Call inbound", "Call outbound"];
+
+    let myJSON = {
+        type: 'line',
+        data: {},
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    text: 'Call Time Scale',
+                    display: true
+                }
+            },
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        displayFormats: {
+                        'minute': 'HH:mm'
+                        },
+                    },
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Time',
+                    },
+                    min: Date.now() - slidingTimeWindow * (1 * 60 * 1000 ),
+                },
+                 y: {
+                       ticks: {
+                           callback: function(value, index, ticks) {
+                               switch (value) {
+                                   case 0:
+                                       return("Break");
+                                   case 1:
+                                       return("Not Ready");
+                                   case 2:
+                                       return("Not ACD Call");
+                                   case 3:
+                                       return("Ready");
+                                   case 4:
+                                       return("Working");
+                                   case 5:
+                                       return("Call");
+                                   case 6:
+                                       return("Incomming Call");
+                                   default:
+                                       return("");
+                               }
+                           },
+                       },
+                     display: true,
+                     type: "linear",
+
+                     min: 0,
+                     max: 7,
+                  },
+            },
+        },
+    };
+
+    let agendAddData = {datasets:[]};
+    let agentData = [];
+    let agentDataDataset = [];
+
+    let arrayId = [];
+    // get all ids / names --> arrayId
+    for (let i = 0; i < myArray.length; i++){
+        // check name
+        if (! arrayId.find(arrayId => arrayId == myArray[i][0] ) ){
+            // myArray[i][0] is the name
+            arrayId.push(myArray[i][0]);
+            // create userdata array
+            agentData[myArray[i][0]] = {
+                label: 'My First dataset',
+                backgroundColor: intToRGB(hashCode(myArray[i][0])),
+                borderColor: intToRGB(hashCode(myArray[i][0])),
+                fill: false,
+                stepped: "bevor",
+                data: []
+            };
+            agentDataDataset[myArray[i][0]] = [];
+            agentData[myArray[i][0]].label = myArray[i][0];
+        }
+    }
+
+
+    let JSONAgendData = [];
+    // scan alle entries
+    for (let j = 0; j < myArray.length; j++){
+        let date = {x: 0,y: 0};
+        date.x = myArray[j][1];
+        date.y = myArray[j][2];
+
+        agentDataDataset[myArray[j][0]].push(date);
+    }
+
+//     // add last point now()
+     for (let j = 0; j < arrayId.length; j++){
+         let date = {x: 0,y: 0};
+         let now = Date.now();
+         date.x = now;
+         date.y = await getStatJSONArray("arrayTime", arrayId[j]);
+         agentDataDataset[arrayId[j]].push(date);
+     }
+
+// add Dataset to array
+    for (let j = 0; j < arrayId.length; j++){
+        // added data -->
+
+        agentData[arrayId[j]].data = agentDataDataset[arrayId[j]];
+        agendAddData.datasets.push(agentData[arrayId[j]]);
+    }
+    myJSON.data = agendAddData;
+
+    return(myJSON);
+}
 
 
 // search the full Name and add the content
@@ -379,20 +584,29 @@ function AddToCellContent(find, add)
 }
 
 
-
 async function AddStat()
 {
     // create JSON (only new entry
-    await createJSONData("arrayDate");
+    //await createJSONData("arrayTime");
     // insert table
-    let statTable = "<table align=\"CENTER\" border=\"1\" cellspacing=\"0\" cellpadding=\"1\" width=\"100%\"><tbody><tr><td><b><font color=\"Navy\">" +
-        "<input type=\"checkbox\" id=\"showstat\" checked> Call Stat (approximated)</b></td></tr>" +
-        "<tr><td> <div><canvas id=\"myChart\"></canvas></div>  </td></tr></tbody></table>";
+    let statTable = "<table align=\"CENTER\" border=\"1\" cellspacing=\"0\" cellpadding=\"1\" width=\"100%\"><tbody>"+
+        "<tr>"+
+        "<th style=\"width:50%\"><b><font color=\"Navy\"><input type=\"checkbox\" id=\"showstat\" checked> Call Stat (approximated)</b></th>" +
+        "<th style=\"width:50%\"><b><font color=\"Navy\"><input type=\"checkbox\" id=\"showTime\" checked> Time Stat (also approximated)</b></th>" +
+        "</tr>" +
+        "<tr><td> <div><canvas id=\"myChart\"></canvas></div>  </td>"+
+        "<td><div><canvas id=\"myTimeChart\"></canvas></div>  </td>"+
+        "</tr></tbody></table>";
     $(statTable).insertBefore($("p"));
     // var
     let myContext = document.getElementById("myChart");
-    let myChartConfig = await readAgentData("myJSON");
-    let myChart = new Chart(myContext, JSON.parse(myChartConfig));
+    let myChartConfig = await createJSONData("arrayTime");
+    let myChart = new Chart(myContext, myChartConfig);
+    // Time Chart
+    let myTimeContext = document.getElementById("myTimeChart");
+    let myTimeChartConfig = await createTimeJSONData("arrayTime");
+    let myTimeChart = new Chart(myTimeContext, myTimeChartConfig);
+    // let myTimeChart = new Chart(myTimeContext, myTimeChartConfig);
 
     if (showStat == 1 || await readAgentData("showStat") == 1){
         $("#myChart").show();
@@ -400,6 +614,13 @@ async function AddStat()
     } else {
         $("#myChart").hide();
         $("#showstat").prop('checked', false);
+    }
+    if (showTime == 1 || await readAgentData("showTime") == 1){
+        $("#myTimeChart").show();
+        $("#showTime").prop('checked', true);
+    } else {
+        $("#myTimeChart").hide();
+        $("#showTime").prop('checked', false);
     }
     // check set Show stat
     $("#showstat").on("click", function(){
@@ -411,27 +632,41 @@ async function AddStat()
                 $("#myChart").hide();
             }
     });
+    $("#showTime").on("click", function(){
+            if($("#showTime").is(':checked')) {
+                setAgentData("showTime", 1);
+                $("#myTimeChart").show();
+            } else {
+                setAgentData("showTime", 0);
+                $("#myTimeChart").hide();
+            }
+    });
 }
 
 
-async function UpdateCallValue(id){
+
+async function UpdateCallTimeValue(id){
     let value = await readAgentData(id);
-    let valueCalls = await readAgentData(id+"count");
-    let ranking = this;
-    if (enableDebug == 1){
-            console.log("UpdateCallValue check: "+"#id"+id +" value: "+value);
-       }
-    //update HTML element "id"+id
-    // new version $( ".id"+id ).text(value);
-    // calc a # count
-    let hashstring = "";
-    let maxhashlenght = 60;
-    let numhash = (valueCalls / 10) >> 0;
-    if ( numhash > maxhashlenght ) numhash = maxhashlenght;
+    let valueStat = await getStatJSONArray("arrayTime", id);
+    // not ready no waiting time
+    if (valueStat != 3){
+        return;
+    }
+    let valueTime = await getTimeJSONArray("arrayTime", id, 3);
+    let now = Date.now();
+
+    //let sec = (Math.abs(now - valueTime) / 1000) | 0;
+    //let waittime = Date.now() - valueTime;
+    let sec = (Math.abs(now - valueTime) / 1000) | 0;
+    // calc hash --- log
+    // let hash = Math.log(sec) | 0;
+    let hash = (sec / 60) / 5 | 0;
+    if ( hash > 50 ) { hash = 50; }
     if ( id == "erendl" || id == "sschuster" ) {
         $( ".id"+id+"anz" ).text("-");
     } else {
-        $( ".id"+id+"anz" ).text("#".repeat(numhash));
+        //$( ".id"+id+"anz" ).text(waittime.getMinutes() + ":" + waittime.getSeconds());
+        $( ".id"+id+"anz" ).text("#".repeat(hash));
     }
 }
 
@@ -451,9 +686,6 @@ function reloadWhenError(){
 
 $(document).ready(function() {
     'use strict';
-    if (enableDebug == 1){
-        console.log("DEBUG enabled");
-    }
     // check if error --> reload
     reloadWhenError();
     // first start a new day delete all data
@@ -470,36 +702,34 @@ $(document).ready(function() {
             //*font:contains('" + find + "'):visible"
             AddToCellContent(value[0], ("waiting: <span class=\"id"+value[2]+"anz\"></span>" ));
             // Check status
-            if (value[1] == "On a Call"){
-                setOnACall(value[2]);
-            } else if (value[1] == "Work"){
-                //check if last status was "On a Call"
-                setWorking(value[2]);
-            } else if (value[1] == "Ready"){
-                setReady(value[2]);
-            } else if (value[1] == "Reserved"){
-                // ignore Reserved
-            } else if (value[1] == "Break" || value[1] == "Logged Out"){
-                setOffline(value[2]);
-            } else {
-            // die # werden immer glöscht wenn nicht im ready mode
-                if ( getTicketStatus("arrayDate", value[2]) == 3) {
-                    // Array (UserId, StartCall, EndCall, Direction(0 == Outbound OR 1 == Inbound OR Progess == 3))
-                    updateJSONArray("arrayDate", value[2], "", Date.now(), 0);
-
-                }
-                //setAgentData(value[2] + "status", 0);
-                // delete # of refeshed
-                setAgentData(value[2] + "count", 0);
+            switch (value[1]) {
+                case "On a Call":
+                    setOnACall(value[2]);
+                    break;
+                case "Work":
+                    setWorking(value[2]);
+                    break;
+                case "Ready":
+                    setReady(value[2]);
+                    break;
+                case "Logged Out":
+                    setOffline(value[2]);
+                    break;
+                case "Break":
+                    setBreak(value[2]);
+                    break;
+                case "Not Ready":
+                case "In Office":
+                    setNotReady(value[2]);
+                    break;
+                case "nicht ACD Anruf":
+                    setNoACD(value[2]);
+                    break;
+                default:
+                    // Do nothing
             }
             // update Calls var
-            UpdateCallValue(value[2]);
-            if (enableDebug == 1){
-                console.log( index + ": Name:" + value[0] +
-                    " Status:" + value[1] +
-                    " id:" + value[2]
-                    );
-            }
+            UpdateCallTimeValue(value[2]);
         }
     });
     // show Statistic
