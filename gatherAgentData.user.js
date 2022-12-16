@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         gather Agent Data
 // @namespace    https://github.com/noxorius/
-// @version      0.9
+// @version      1.0
 // @description  get some metadata only for work
 // @author       Noxorius
 // @updateURL    https://github.com/noxorius/gatherAgentData/raw/master/gatherAgentData.user.js
@@ -28,7 +28,7 @@
 // 5 --> Call
 // 6 --> Incomming Call ( will be set if last Status is Call and Status now is Working
 
-
+// Update 1: new logFile format
 // Update 0.9 upgrade chart.js to 3.9.1 and jquery 3.6.1
 // Update 0.7: fix bug reload on "internal server page"
 // Update 0.5: all call to extern have now the "On a Call" Sign ... we have to switch the logic ...
