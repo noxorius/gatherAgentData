@@ -3,7 +3,9 @@
 // @namespace    smallAnnouncements
 // @version      0.1
 // @description  shrink Announcements
-// @author       You
+// @author       Noxorius
+// @updateURL    https://github.com/noxorius/gatherAgentData/raw/master/smallAnnouncements.user.js
+// @downloadURL  https://github.com/noxorius/gatherAgentData/raw/master/smallAnnouncements.user.js
 // @match        https://rbit.service-now.com/now/sow/home
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=service-now.com
 // @grant        none
