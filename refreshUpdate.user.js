@@ -42,7 +42,7 @@ async function refreshTicketCount(element, refeshtimer){
 
     setTimeout(function() {
 
-        let refeshtimer = 120000; //millisecunde
+        let refeshtimer = 300000; //millisecunde
 
         // Search all buttons
         let elements = querySelectorAllShadows("button[aria-label=\"Refresh data\"]");
